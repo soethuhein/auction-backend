@@ -67,14 +67,26 @@ def category(db):
 
 
 @pytest.fixture
-def auction(db, user, category):
+def item(db, user, category):
+    """Create a test item."""
+    from auctions.models import Item
+    return Item.objects.create(
+        owner=user,
+        item_type=Item.ItemType.DIGITAL,
+        title="Test Item",
+        description="A test item",
+        category=category,
+        attributes={"version": "1.0"},
+    )
+
+
+@pytest.fixture
+def auction(db, user, item):
     """Create a draft auction."""
     from auctions.models import Auction
     return Auction.objects.create(
         seller=user,
-        title="Test Item",
-        description="A test auction item",
-        category=category,
+        item=item,
         starting_price=100,
         current_price=100,
         status=Auction.Status.DRAFT,
@@ -82,15 +94,13 @@ def auction(db, user, category):
 
 
 @pytest.fixture
-def active_auction(db, user, category):
+def active_auction(db, user, item):
     """Create an active auction."""
     from auctions.models import Auction
     from django.utils import timezone
     return Auction.objects.create(
         seller=user,
-        title="Active Item",
-        description="An active auction",
-        category=category,
+        item=item,
         starting_price=100,
         current_price=100,
         status=Auction.Status.ACTIVE,

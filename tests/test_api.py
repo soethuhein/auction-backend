@@ -34,30 +34,31 @@ class TestAuctionsAPI:
         assert response.status_code == 200
         assert response.data["count"] >= 1
 
-    def test_create_auction(self, auth_client):
+    def test_create_auction_draft(self, auth_client, category):
         url = reverse("auction-list")
-        start_time = (timezone.now() + timedelta(hours=2)).isoformat()
-        data = {
-            "title": "New Auction",
-            "description": "Description",
-            "starting_price": "99.99",
-            "start_time": start_time,
-            "duration_hours": 2,
-            "image_urls": [],
-        }
+        item_url = reverse("item-list")
+        item = auth_client.post(
+            item_url,
+            {
+                "item_type": "digital",
+                "title": "New Item",
+                "description": "Description",
+                "category_id": str(category.id),
+                "attributes": {"platform": "Steam"},
+            },
+            format="json",
+        ).data
+        data = {"item_id": item["id"], "starting_price": "99.99"}
         response = auth_client.post(url, data, format="json")
         assert response.status_code == 201
-        assert response.data["title"] == "New Auction"
         assert "id" in response.data
         from auctions.models import Auction
         created = Auction.objects.get(pk=response.data["id"])
-        assert created.status == "scheduled"
+        assert created.status == "draft"
 
     def test_create_auction_requires_auth(self, api_client):
         url = reverse("auction-list")
         data = {
-            "title": "New Auction",
-            "description": "Desc",
             "starting_price": "10",
         }
         response = api_client.post(url, data, format="json")
@@ -67,24 +68,22 @@ class TestAuctionsAPI:
         url = reverse("auction-detail", kwargs={"pk": auction.id})
         response = api_client.get(url)
         assert response.status_code == 200
-        assert response.data["title"] == "Test Item"
+        assert response.data["item"]["title"] == "Test Item"
 
     def test_update_auction_seller(self, auth_client, auction):
         url = reverse("auction-detail", kwargs={"pk": auction.id})
         data = {
-            "title": "Updated Title",
             "start_time": (timezone.now() + timedelta(hours=1)).isoformat(),
             "duration_minutes": 30,
         }
         response = auth_client.patch(url, data, format="json")
         assert response.status_code == 200
         auction.refresh_from_db()
-        assert auction.title == "Updated Title"
         assert auction.status == "scheduled"
 
     def test_update_auction_non_seller_forbidden(self, auth_client_other, auction):
         url = reverse("auction-detail", kwargs={"pk": auction.id})
-        response = auth_client_other.patch(url, {"title": "Hacked"}, format="json")
+        response = auth_client_other.patch(url, {"duration_minutes": 15}, format="json")
         assert response.status_code == 403
 
     def test_start_auction(self, auth_client, auction):
@@ -105,11 +104,32 @@ class TestAuctionsAPI:
         response = auth_client_other.post(url)
         assert response.status_code == 403
 
-    def test_create_auction_requires_start_time(self, auth_client):
+    def test_create_auction_requires_item_id(self, auth_client):
         url = reverse("auction-list")
         data = {
-            "title": "Missing Start",
-            "description": "Description",
+            "starting_price": "99.99",
+            "duration_hours": 1,
+        }
+        response = auth_client.post(url, data, format="json")
+        assert response.status_code == 400
+        assert "item_id" in response.data
+
+    def test_create_auction_requires_start_time_when_scheduling(self, auth_client, category):
+        url = reverse("auction-list")
+        item_url = reverse("item-list")
+        item = auth_client.post(
+            item_url,
+            {
+                "item_type": "digital",
+                "title": "Sched Item",
+                "description": "Description",
+                "category_id": str(category.id),
+                "attributes": {},
+            },
+            format="json",
+        ).data
+        data = {
+            "item_id": item["id"],
             "starting_price": "99.99",
             "duration_hours": 1,
         }
@@ -117,22 +137,45 @@ class TestAuctionsAPI:
         assert response.status_code == 400
         assert "start_time" in response.data
 
-    def test_create_auction_requires_end_or_duration(self, auth_client):
+    def test_create_auction_requires_end_or_duration_when_scheduling(self, auth_client, category):
         url = reverse("auction-list")
+        item_url = reverse("item-list")
+        item = auth_client.post(
+            item_url,
+            {
+                "item_type": "digital",
+                "title": "Missing Dur",
+                "description": "Description",
+                "category_id": str(category.id),
+                "attributes": {},
+            },
+            format="json",
+        ).data
         data = {
-            "title": "Missing Duration",
-            "description": "Description",
+            "item_id": item["id"],
             "starting_price": "99.99",
-            "start_time": (timezone.now() + timedelta(hours=1)).isoformat(),
+            "start_time": (timezone.now() + timedelta(minutes=5)).isoformat(),
         }
         response = auth_client.post(url, data, format="json")
         assert response.status_code == 400
+        assert "non_field_errors" in response.data
 
-    def test_create_auction_rejects_past_start_time(self, auth_client):
+    def test_create_auction_rejects_past_start_time(self, auth_client, category):
         url = reverse("auction-list")
+        item_url = reverse("item-list")
+        item = auth_client.post(
+            item_url,
+            {
+                "item_type": "digital",
+                "title": "Past Start",
+                "description": "Description",
+                "category_id": str(category.id),
+                "attributes": {},
+            },
+            format="json",
+        ).data
         data = {
-            "title": "Past Start",
-            "description": "Description",
+            "item_id": item["id"],
             "starting_price": "99.99",
             "start_time": (timezone.now() - timedelta(minutes=5)).isoformat(),
             "duration_hours": 1,
@@ -140,6 +183,25 @@ class TestAuctionsAPI:
         response = auth_client.post(url, data, format="json")
         assert response.status_code == 400
         assert "start_time" in response.data
+
+
+class TestItemsAPI:
+    def test_create_item(self, auth_client, category):
+        url = reverse("item-list")
+        response = auth_client.post(
+            url,
+            {
+                "item_type": "digital",
+                "title": "Digital Key",
+                "description": "Game key",
+                "category_id": str(category.id),
+                "attributes": {"platform": "Steam", "region": "global"},
+            },
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["title"] == "Digital Key"
+        assert response.data["category"]["id"] == category.id
 
 
 class TestBidsAPI:

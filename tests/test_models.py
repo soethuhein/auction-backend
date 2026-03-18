@@ -3,7 +3,7 @@ import pytest
 from decimal import Decimal
 
 
-from auctions.models import Auction, Category, Watchlist
+from auctions.models import Auction, Category, Watchlist, Item
 from bids.models import Bid
 from users.models import User
 
@@ -61,11 +61,16 @@ class TestAuctionModel:
     """Tests for Auction model."""
 
     def test_create_auction(self, db, user, category):
-        auction = Auction.objects.create(
-            seller=user,
+        item = Item.objects.create(
+            owner=user,
             title="Painting",
             description="A painting",
             category=category,
+            item_type=Item.ItemType.PHYSICAL,
+        )
+        auction = Auction.objects.create(
+            seller=user,
+            item=item,
             starting_price=Decimal("50.00"),
         )
         assert auction.status == Auction.Status.DRAFT
@@ -80,7 +85,7 @@ class TestAuctionModel:
         assert Auction.Status.ENDED == "ended"
 
     def test_str(self, auction):
-        assert str(auction) == "Test Item"
+        assert "Test Item" in str(auction)
 
 
 class TestBidModel:

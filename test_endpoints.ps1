@@ -52,44 +52,52 @@ Write-Host "`n=== 6. Auctions (list) ===" -ForegroundColor Cyan
 $auctions = Invoke-Api -Method GET -Url "$base/auctions/"
 $auctions | ConvertTo-Json -Depth 2
 
-Write-Host "`n=== 7. Create Auction ===" -ForegroundColor Cyan
+Write-Host "`n=== 7. Create Item ===" -ForegroundColor Cyan
+$item = Invoke-Api -Method POST -Url "$base/items/" -Body @{
+    item_type = "digital"
+    title = "Test Painting (Digital)"
+    description = "A digital item to auction"
+    attributes = @{ platform = "Steam"; region = "global" }
+} -UseAuth $true
+$item | ConvertTo-Json -Depth 4
+$itemId = $item.id
+
+Write-Host "`n=== 8. Create Auction (draft) ===" -ForegroundColor Cyan
 $auc = Invoke-Api -Method POST -Url "$base/auctions/" -Body @{
-    title = "Test Painting"
-    description = "A beautiful painting"
+    item_id = $itemId
     starting_price = "100.00"
-    image_urls = @()
 } -UseAuth $true
 $auc | ConvertTo-Json -Depth 3
 $auctionId = $auc.id
 
-Write-Host "`n=== 8. Auction Detail ===" -ForegroundColor Cyan
+Write-Host "`n=== 9. Auction Detail ===" -ForegroundColor Cyan
 Invoke-Api -Method GET -Url "$base/auctions/$auctionId/" -UseAuth $true | ConvertTo-Json -Depth 3
 
-Write-Host "`n=== 9. Start Auction (with duration) ===" -ForegroundColor Cyan
+Write-Host "`n=== 10. Start Auction (with duration) ===" -ForegroundColor Cyan
 Invoke-Api -Method POST -Url "$base/auctions/$auctionId/start/" -Body @{duration_days=1; duration_hours=2; duration_minutes=30} -UseAuth $true | ConvertTo-Json -Depth 2
 
-Write-Host "`n=== 10. Place Bid ===" -ForegroundColor Cyan
+Write-Host "`n=== 11. Place Bid ===" -ForegroundColor Cyan
 $bid = Invoke-Api -Method POST -Url "$base/auctions/$auctionId/bid/" -Body @{ amount = "150.00" } -UseAuth $true
 $bid | ConvertTo-Json -Depth 2
 
-Write-Host "`n=== 11. Add to Watchlist ===" -ForegroundColor Cyan
+Write-Host "`n=== 12. Add to Watchlist ===" -ForegroundColor Cyan
 Invoke-Api -Method POST -Url "$base/auctions/$auctionId/add_to_watchlist/" -UseAuth $true | ConvertTo-Json
 
-Write-Host "`n=== 12. My Watchlist ===" -ForegroundColor Cyan
+Write-Host "`n=== 13. My Watchlist ===" -ForegroundColor Cyan
 Invoke-Api -Method GET -Url "$base/auth/me/watchlist/" -UseAuth $true | ConvertTo-Json -Depth 3
 
-Write-Host "`n=== 13. My Bids ===" -ForegroundColor Cyan
+Write-Host "`n=== 14. My Bids ===" -ForegroundColor Cyan
 Invoke-Api -Method GET -Url "$base/auth/me/bids/" -UseAuth $true | ConvertTo-Json -Depth 2
 
-Write-Host "`n=== 14. My Auctions ===" -ForegroundColor Cyan
+Write-Host "`n=== 15. My Auctions ===" -ForegroundColor Cyan
 Invoke-Api -Method GET -Url "$base/auth/me/auctions/" -UseAuth $true | ConvertTo-Json -Depth 2
 
-Write-Host "`n=== 15. Refresh Token ===" -ForegroundColor Cyan
+Write-Host "`n=== 16. Refresh Token ===" -ForegroundColor Cyan
 $refresh = Invoke-Api -Method POST -Url "$base/auth/refresh/" -Body @{ refresh = $login.refresh }
 $token = $refresh.access
 Write-Host "New token obtained"
 
-Write-Host "`n=== 16. Remove from Watchlist ===" -ForegroundColor Cyan
+Write-Host "`n=== 17. Remove from Watchlist ===" -ForegroundColor Cyan
 Invoke-Api -Method POST -Url "$base/auctions/$auctionId/remove_from_watchlist/" -UseAuth $true | ConvertTo-Json
 
 Write-Host "`n=== Done ===" -ForegroundColor Green

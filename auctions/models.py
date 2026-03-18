@@ -1,9 +1,7 @@
 import uuid
 from datetime import timedelta
-from decimal import Decimal
 from django.db import models
 from django.conf import settings
-from django.utils import timezone
 
 
 class Category(models.Model):
@@ -20,6 +18,73 @@ class Category(models.Model):
         return self.name
 
 
+class Item(models.Model):
+    class ItemType(models.TextChoices):
+        DIGITAL = "digital", "Digital"
+        PHYSICAL = "physical", "Physical"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    item_type = models.CharField(
+        max_length=20,
+        choices=ItemType.choices,
+        default=ItemType.DIGITAL,
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="items",
+    )
+    # Flexible attributes/specs (especially useful for digital products)
+    attributes = models.JSONField(default=dict, blank=True)
+
+    # Common digital product metadata (optional)
+    platform = models.CharField(max_length=120, blank=True)
+    region = models.CharField(max_length=80, blank=True)
+    language = models.CharField(max_length=80, blank=True)
+    license_type = models.CharField(max_length=80, blank=True)
+    delivery_method = models.CharField(max_length=80, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "items"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+def item_image_upload_to(instance, filename: str) -> str:
+    return f"items/{instance.item_id}/{filename}"
+
+
+class ItemImage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.ImageField(upload_to=item_image_upload_to)
+    alt_text = models.CharField(max_length=255, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "item_images"
+        ordering = ["sort_order", "created_at"]
+
+
 class Auction(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -34,21 +99,18 @@ class Auction(models.Model):
         on_delete=models.CASCADE,
         related_name="auctions",
     )
-    title = models.CharField(max_length=255)
-    description = models.TextField()
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.SET_NULL,
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.PROTECT,
+        related_name="auctions",
         null=True,
         blank=True,
-        related_name="auctions",
     )
     starting_price = models.DecimalField(max_digits=12, decimal_places=2)
     current_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     reserve_price = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )
-    image_urls = models.JSONField(default=list, blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.DRAFT
     )
@@ -67,7 +129,7 @@ class Auction(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return self.title
+        return f"{self.item.title} ({self.status})"
 
     def get_duration_timedelta(self):
         """Return total duration as timedelta."""

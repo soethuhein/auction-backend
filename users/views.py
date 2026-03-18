@@ -47,7 +47,7 @@ class MyAuctionsView(generics.ListAPIView):
 
     def get_queryset(self):
         return Auction.objects.filter(seller=self.request.user).select_related(
-            "seller", "category"
+            "seller", "item", "item__category"
         ).order_by("-created_at")
 
 
@@ -67,5 +67,5 @@ class MyWatchlistView(generics.ListAPIView):
 
     def get_queryset(self):
         return Watchlist.objects.filter(user=self.request.user).select_related(
-            "auction", "auction__seller", "auction__category"
+            "auction", "auction__seller", "auction__item", "auction__item__category"
         ).order_by("-created_at")

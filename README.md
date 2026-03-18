@@ -5,7 +5,7 @@ Django REST Framework backend for the Auction Management System with support for
 ## Stack
 
 - **Django 5** + **DRF**
-- **PostgreSQL**
+- **MySQL** (recommended for dev) or **PostgreSQL**
 - **Redis** (cache, Channels, Celery broker/result)
 - **Django Channels** (WebSockets for live bidding)
 - **Celery** (async tasks; broker: Redis or RabbitMQ)
@@ -28,15 +28,40 @@ pip install -r requirements.txt
 
 ### 3. Environment
 
-Copy `.env.example` to `.env` and adjust variables. For quick dev without PostgreSQL, set `DB_ENGINE=sqlite` in `.env`.
+Copy `.env.example` to `.env` and adjust variables.
+
+#### MySQL (recommended)
+Set these in `.env`:
+
+```env
+DB_ENGINE=mysql
+DB_NAME=auction_db
+DB_USER=root
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=3306
+```
+
+#### SQLite (quick local dev)
+
+```env
+DB_ENGINE=sqlite
+```
 
 ### 4. Database
 
 ```bash
-# Create PostgreSQL database: auction_db
+# Create your database first, then:
 python manage.py migrate
 python manage.py createsuperuser
 ```
+
+### MySQL notes
+
+- Set `DB_ENGINE=mysql` in `.env`
+- Use `DB_PORT=3306` (or your custom port)
+- Ensure MySQL server is running and database exists before migrations
+- If you see auth plugin issues on Windows, use MySQL 8 default auth or configure the user accordingly
 
 ### 5. Run
 
@@ -96,6 +121,13 @@ Logs are written to `logs/`:
 | GET | `/api/auctions/{id}/` | Auction detail |
 | PATCH | `/api/auctions/{id}/` | Update auction |
 | POST | `/api/auctions/{id}/start/` | Start auction |
+| GET | `/api/items/` | List my items |
+| POST | `/api/items/` | Create item |
+| GET | `/api/items/{id}/` | Item detail |
+| PATCH | `/api/items/{id}/` | Update item |
+| POST | `/api/items/{id}/upload_image/` | Upload item image (multipart) |
+| GET | `/api/items/{id}/images/` | List item images |
+| DELETE | `/api/items/{id}/images/{image_id}/` | Delete item image |
 | POST | `/api/auctions/{id}/add_to_watchlist/` | Add to watchlist |
 | POST | `/api/auctions/{id}/remove_from_watchlist/` | Remove from watchlist |
 | POST | `/api/auctions/{id}/bid/` | Place bid |
@@ -122,7 +154,7 @@ Logs are written to `logs/`:
 pytest tests/ -v
 ```
 
-Requires `DB_ENGINE=sqlite` (or set in pytest env). Tests include:
+By default, tests run with **SQLite** (fast, isolated). Tests include:
 - **Model tests** – User, Category, Auction, Bid, Watchlist
 - **Auth tests** – Register, login, refresh, me
 - **API tests** – Auctions, bids, categories, watchlist, permissions
