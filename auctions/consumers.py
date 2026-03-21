@@ -8,7 +8,9 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 
 class AuctionConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.auction_id = self.scope["url_route"]["kwargs"]["auction_id"]
+        auction_id = self.scope["url_route"]["kwargs"]["auction_id"]
+        # Normalize to ensure group name matches broadcast sender.
+        self.auction_id = str(auction_id).lower()
         self.room_group_name = f"auction_{self.auction_id}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()

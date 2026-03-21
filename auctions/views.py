@@ -78,6 +78,15 @@ class AuctionViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at", "end_time", "current_price"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category = self.request.query_params.get("category")
+        if not category:
+            return qs
+        if category.isdigit():
+            return qs.filter(item__category_id=int(category))
+        return qs.filter(item__category__slug=category)
+
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
             return AuctionCreateUpdateSerializer

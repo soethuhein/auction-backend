@@ -22,8 +22,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "email", "username", "first_name", "last_name", "phone", "date_joined")
-        read_only_fields = ("id", "email", "date_joined")
+        fields = (
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "phone",
+            "date_joined",
+            # Needed so the frontend can hide admin UI from non-admin users.
+            "is_staff",
+            "is_superuser",
+        )
+        read_only_fields = ("id", "email", "date_joined", "is_staff", "is_superuser")
 
 
 class UserPublicSerializer(serializers.ModelSerializer):

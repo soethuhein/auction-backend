@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # Use SQLite for fast tests
-os.environ.setdefault("DB_ENGINE", "sqlite")
+# os.environ.setdefault("DB_ENGINE", "sqlite")
 
 
 @pytest.fixture

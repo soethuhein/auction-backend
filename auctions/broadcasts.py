@@ -12,7 +12,7 @@ def _send_to_channel(auction_id, event_type, payload):
     try:
         from channels.layers import get_channel_layer
         channel_layer = get_channel_layer()
-        group_name = f"auction_{auction_id}"
+        group_name = f"auction_{str(auction_id).lower()}"
         async_to_sync(channel_layer.group_send)(
             group_name,
             {"type": event_type, "auction_id": str(auction_id), **payload},
