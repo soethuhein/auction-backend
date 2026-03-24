@@ -3,6 +3,9 @@ Celery tasks for auctions.
 Use with Redis or RabbitMQ as broker.
 Schedule via CELERY_BEAT_SCHEDULE in settings.
 """
+
+import logging
+
 from celery import shared_task
 from django.utils import timezone
 
@@ -68,6 +71,8 @@ def schedule_auction_tasks(auction):
 @shared_task
 def activate_auction_at_eta(auction_id):
     """Activate a scheduled auction exactly at its start_time."""
+    logger = logging.getLogger(__name__)
+    logger.info("activate_auction_at_eta called with auction_id: %s", auction_id)
     from .models import Auction
 
     try:
@@ -106,6 +111,8 @@ def activate_auction_at_eta(auction_id):
 @shared_task
 def end_auction_at_eta(auction_id):
     """End an auction exactly at its end_time."""
+    logger = logging.getLogger(__name__)
+    logger.info("end_auction_at_eta called with auction_id: %s", auction_id)
     from .models import Auction
 
     try:
@@ -175,15 +182,19 @@ def activate_scheduled_auctions():
             start_time__lte=now,
         )
     )
+    # Persist ACTIVE before broadcasting so REST + WS clients see a consistent state (no race).
     for auction in auctions:
+        if not auction.current_price:
+            auction.current_price = auction.starting_price
+        auction.status = Auction.Status.ACTIVE
+        auction.activate_task_id = None
+        auction.save(
+            update_fields=["status", "current_price", "activate_task_id", "updated_at"],
+        )
         broadcast_auction_started(
             auction.id,
             start_time=auction.start_time,
             end_time=auction.end_time,
             current_price=auction.current_price,
         )
-    updated = Auction.objects.filter(id__in=[a.id for a in auctions]).update(
-        status=Auction.Status.ACTIVE,
-        activate_task_id=None,
-    )
-    return f"Activated {updated} scheduled auctions"
+    return f"Activated {len(auctions)} scheduled auctions"

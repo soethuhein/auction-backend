@@ -90,6 +90,10 @@ class AuctionDetailSerializer(serializers.ModelSerializer):
     seller = UserPublicSerializer(read_only=True)
     item = ItemSerializer(read_only=True)
     bids = serializers.SerializerMethodField()
+    is_watched = serializers.SerializerMethodField()
+    is_seller = serializers.SerializerMethodField()
+    winner = serializers.SerializerMethodField()
+    winning_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Auction
@@ -107,13 +111,53 @@ class AuctionDetailSerializer(serializers.ModelSerializer):
             "item",
             "seller",
             "bids",
+            "winner",
+            "winning_price",
+            "is_watched",
+            "is_seller",
             "created_at",
             "updated_at",
         )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._best_bid_cache = {}
+
+    def _get_best_bid(self, obj):
+        oid = obj.pk
+        if oid not in self._best_bid_cache:
+            self._best_bid_cache[oid] = (
+                obj.bids.order_by("-amount", "-created_at").select_related("bidder").first()
+            )
+        return self._best_bid_cache[oid]
+
+    def get_winner(self, obj):
+        bid = self._get_best_bid(obj)
+        if not bid:
+            return None
+        return UserPublicSerializer(bid.bidder).data
+
+    def get_winning_price(self, obj):
+        bid = self._get_best_bid(obj)
+        if not bid:
+            return None
+        return str(bid.amount)
+
     def get_bids(self, obj):
         bids = obj.bids.all()[:10]
         return BidListSerializer(bids, many=True).data
+
+    def get_is_watched(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.watchers.filter(user=request.user).exists()
+
+    def get_is_seller(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.seller_id == request.user.id
 
 
 class AuctionCreateUpdateSerializer(serializers.ModelSerializer):

@@ -1,3 +1,7 @@
+from datetime import datetime, time
+
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
@@ -17,6 +21,24 @@ from .serializers import (
 )
 from .permissions import IsSellerOrReadOnly
 from .tasks import schedule_auction_tasks
+
+
+def _parse_query_datetime(value: str, *, end_of_day: bool = False):
+    """Parse ISO datetime or YYYY-MM-DD from query params; return timezone-aware datetime or None."""
+    if not value or not str(value).strip():
+        return None
+    value = str(value).strip()
+    dt = parse_datetime(value)
+    if dt is not None:
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt)
+        return dt
+    d = parse_date(value)
+    if d is not None:
+        t = time.max if end_of_day else time.min
+        dt = timezone.make_aware(datetime.combine(d, t))
+        return dt
+    return None
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -80,12 +102,42 @@ class AuctionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        category = self.request.query_params.get("category")
-        if not category:
-            return qs
-        if category.isdigit():
-            return qs.filter(item__category_id=int(category))
-        return qs.filter(item__category__slug=category)
+        params = self.request.query_params
+
+        category = params.get("category")
+        if category:
+            if str(category).isdigit():
+                qs = qs.filter(item__category_id=int(category))
+            else:
+                qs = qs.filter(item__category__slug=category)
+
+        status_filter = params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        else:
+            exclude_status = params.get("exclude_status")
+            if exclude_status:
+                excluded = [s.strip() for s in str(exclude_status).split(",") if s.strip()]
+                if excluded:
+                    qs = qs.exclude(status__in=excluded)
+
+        end_after = _parse_query_datetime(params.get("end_after") or "")
+        if end_after is not None:
+            qs = qs.filter(end_time__gte=end_after)
+
+        end_before = _parse_query_datetime(params.get("end_before") or "", end_of_day=True)
+        if end_before is not None:
+            qs = qs.filter(end_time__lte=end_before)
+
+        start_after = _parse_query_datetime(params.get("start_after") or "")
+        if start_after is not None:
+            qs = qs.filter(start_time__gte=start_after)
+
+        start_before = _parse_query_datetime(params.get("start_before") or "", end_of_day=True)
+        if start_before is not None:
+            qs = qs.filter(start_time__lte=start_before)
+
+        return qs
 
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
@@ -177,7 +229,9 @@ class AuctionViewSet(viewsets.ModelViewSet):
             auction.save()
 
         schedule_auction_tasks(auction)
-        return Response(AuctionDetailSerializer(auction).data)
+        return Response(
+            AuctionDetailSerializer(auction, context={"request": request}).data
+        )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def add_to_watchlist(self, request, pk=None):

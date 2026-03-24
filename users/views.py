@@ -1,3 +1,5 @@
+from django.db.models import OuterRef, Prefetch, Subquery
+
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -7,7 +9,7 @@ from .serializers import UserRegisterSerializer, UserSerializer
 from auctions.models import Auction, Watchlist
 from auctions.serializers import AuctionListSerializer, WatchlistSerializer
 from bids.models import Bid
-from bids.serializers import BidListSerializer
+from bids.serializers import MyBidSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -52,13 +54,33 @@ class MyAuctionsView(generics.ListAPIView):
 
 
 class MyBidsView(generics.ListAPIView):
-    serializer_class = BidListSerializer
+    serializer_class = MyBidSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Bid.objects.filter(bidder=self.request.user).select_related(
-            "auction", "bidder"
-        ).order_by("-created_at")
+        won_param = self.request.query_params.get("won", "").lower()
+        won_only = won_param in ("1", "true", "yes")
+
+        ordered_bids = Bid.objects.order_by("-amount", "-created_at")
+        qs = (
+            Bid.objects.filter(bidder=self.request.user)
+            .select_related("auction", "auction__item")
+            .prefetch_related(Prefetch("auction__bids", queryset=ordered_bids))
+            .order_by("-created_at")
+        )
+
+        if won_only:
+            winning_bid_pk = Subquery(
+                Bid.objects.filter(auction_id=OuterRef("auction_id"))
+                .order_by("-amount", "-created_at")
+                .values("id")[:1]
+            )
+            qs = qs.filter(
+                auction__status=Auction.Status.ENDED,
+                id=winning_bid_pk,
+            )
+
+        return qs
 
 
 class MyWatchlistView(generics.ListAPIView):

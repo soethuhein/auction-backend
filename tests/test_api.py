@@ -70,6 +70,36 @@ class TestAuctionsAPI:
         assert response.status_code == 200
         assert response.data["item"]["title"] == "Test Item"
 
+    def test_auction_detail_ended_includes_winner(self, api_client, active_auction, other_user):
+        from auctions.models import Auction
+        from bids.models import Bid
+
+        Bid.objects.create(
+            auction=active_auction,
+            bidder=other_user,
+            amount=Decimal("200.00"),
+        )
+        active_auction.current_price = Decimal("200.00")
+        active_auction.status = Auction.Status.ENDED
+        active_auction.save()
+        url = reverse("auction-detail", kwargs={"pk": active_auction.id})
+        response = api_client.get(url)
+        assert response.status_code == 200
+        assert response.data["winner"] is not None
+        assert str(response.data["winner"]["id"]) == str(other_user.id)
+        assert response.data["winning_price"] == "200.00"
+
+    def test_auction_detail_ended_no_bids_winner_null(self, api_client, active_auction):
+        from auctions.models import Auction
+
+        active_auction.status = Auction.Status.ENDED
+        active_auction.save()
+        url = reverse("auction-detail", kwargs={"pk": active_auction.id})
+        response = api_client.get(url)
+        assert response.status_code == 200
+        assert response.data["winner"] is None
+        assert response.data["winning_price"] is None
+
     def test_update_auction_seller(self, auth_client, auction):
         url = reverse("auction-detail", kwargs={"pk": auction.id})
         data = {
@@ -279,3 +309,35 @@ class TestUserProfileAPI:
         response = auth_client_other.get(url)
         assert response.status_code == 200
         assert response.data["count"] >= 1
+        row = next(r for r in response.data["results"] if r["id"] == str(bid.id))
+        assert row["auction"]["id"] == str(bid.auction_id)
+        assert row["auction"]["item_title"] == "Test Item"
+        assert row["is_winning"] is True
+        assert row["is_won"] is False
+
+    def test_my_bids_won_filter_only_winning_ended(self, auth_client_other, user, item, other_user):
+        from auctions.models import Auction
+        from bids.models import Bid
+
+        ended_a = Auction.objects.create(
+            seller=user,
+            item=item,
+            starting_price=50,
+            current_price=200,
+            status=Auction.Status.ENDED,
+        )
+        Bid.objects.create(auction=ended_a, bidder=other_user, amount=Decimal("100.00"))
+        Bid.objects.create(auction=ended_a, bidder=other_user, amount=Decimal("200.00"))
+
+        url = reverse("my-bids")
+        response = auth_client_other.get(url, {"won": "true"})
+        assert response.status_code == 200
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["amount"] == "200.00"
+        assert response.data["results"][0]["is_won"] is True
+
+    def test_my_bids_won_filter_excludes_active_auctions(self, auth_client_other, bid):
+        url = reverse("my-bids")
+        response = auth_client_other.get(url, {"won": "true"})
+        assert response.status_code == 200
+        assert response.data["count"] == 0
