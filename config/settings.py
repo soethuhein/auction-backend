@@ -176,14 +176,14 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
 CELERY_BEAT_SCHEDULE = {
-    # "end-expired-auctions": {
-    #     "task": "auctions.tasks.end_expired_auctions",
-    #     "schedule": 60.0,
-    # },
-    # "activate-scheduled-auctions": {
-    #     "task": "auctions.tasks.activate_scheduled_auctions",
-    #     "schedule": 60.0,
-    # },
+    "end-expired-auctions": {
+        "task": "auctions.tasks.end_expired_auctions",
+        "schedule": 60.0,
+    },
+    "activate-scheduled-auctions": {
+        "task": "auctions.tasks.activate_scheduled_auctions",
+        "schedule": 60.0,
+    },
 }
 
 # Uncomment for RabbitMQ:

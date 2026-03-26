@@ -97,7 +97,7 @@ class AuctionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly, IsSellerOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["item__title", "item__description"]
-    ordering_fields = ["created_at", "end_time", "current_price"]
+    ordering_fields = ["created_at", "start_time", "end_time", "current_price"]
     ordering = ["-created_at"]
 
     def get_queryset(self):
