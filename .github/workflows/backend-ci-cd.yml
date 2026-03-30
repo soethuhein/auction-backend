@@ -1,0 +1,69 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DB_ENGINE: sqlite
+      DJANGO_SECRET_KEY: ci-test
+      DEBUG: "false"
+      ALLOWED_HOSTS: localhost
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CELERY_RESULT_BACKEND: redis://localhost:6379/2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (mysqlclient build)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-libmysqlclient-dev build-essential
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to VPS (SSH + systemd)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_SSH_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/auction-backend
+            git pull origin main
+
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+            python manage.py migrate --noinput
+            python manage.py collectstatic --noinput
+
+            sudo systemctl restart auction-daphne auction-celery-worker auction-celery-beat
+
