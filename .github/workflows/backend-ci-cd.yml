@@ -45,25 +45,21 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Deploy to VPS (SSH + systemd)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_SSH_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -e
-            cd /home/auction-backend
-            git pull origin main
+      - name: Deploy to server (self-hosted runner)
+        shell: bash
+        run: |
+          set -e
+          cd /home/auction-backend
+          git pull origin main
 
-            source venv/bin/activate
-            pip install -r requirements.txt
+          source venv/bin/activate
+          python -m pip install -r requirements.txt
 
-            python manage.py migrate --noinput
-            python manage.py collectstatic --noinput
+          python manage.py migrate --noinput
+          python manage.py collectstatic --noinput
 
-            sudo systemctl restart auction-daphne auction-celery-worker auction-celery-beat
+          sudo systemctl restart auction-daphne auction-celery-worker auction-celery-beat
 
