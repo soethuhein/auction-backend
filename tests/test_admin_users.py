@@ -21,7 +21,7 @@ class TestAdminUsersAPI:
     def test_list_anonymous(self, api_client):
         url = reverse("admin-users")
         response = api_client.get(url)
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_ban_regular_user(self, staff_auth_client, other_user):
         assert other_user.is_active

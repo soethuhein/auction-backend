@@ -28,4 +28,4 @@ class TestAdminStatsAPI:
     def test_admin_stats_anonymous(self, api_client):
         url = reverse("admin-stats")
         response = api_client.get(url)
-        assert response.status_code == 403
+        assert response.status_code == 401
