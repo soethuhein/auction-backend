@@ -125,6 +125,9 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Platform fee shown on admin stats (commission = total_revenue * rate)
+COMMISSION_RATE = float(os.getenv("COMMISSION_RATE", "0.05"))
+
 # CORS
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
 CORS_ALLOW_CREDENTIALS = True

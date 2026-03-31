@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Auction, Category, Watchlist, Item, ItemImage
-from users.serializers import UserPublicSerializer
+from users.serializers import AdminItemOwnerSerializer, UserPublicSerializer
 from bids.serializers import BidListSerializer
 
 
@@ -65,6 +65,34 @@ class ItemSerializer(serializers.ModelSerializer):
                 except Category.DoesNotExist:
                     raise serializers.ValidationError({"category_id": "Invalid category id"})
         return data
+
+
+class AdminItemListSerializer(serializers.ModelSerializer):
+    """Staff-only list of all items with owner contact fields."""
+
+    owner = AdminItemOwnerSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
+    images = ItemImageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Item
+        fields = (
+            "id",
+            "owner",
+            "item_type",
+            "title",
+            "description",
+            "category",
+            "attributes",
+            "platform",
+            "region",
+            "language",
+            "license_type",
+            "delivery_method",
+            "images",
+            "created_at",
+            "updated_at",
+        )
 
 
 class AuctionListSerializer(serializers.ModelSerializer):

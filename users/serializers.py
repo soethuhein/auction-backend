@@ -41,3 +41,38 @@ class UserPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("id", "username", "first_name")
+
+
+class AdminItemOwnerSerializer(serializers.ModelSerializer):
+    """Owner summary for staff item list (includes email)."""
+
+    class Meta:
+        model = User
+        fields = ("id", "email", "username", "first_name", "last_name")
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Staff-only list/detail for user management."""
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "date_joined",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+        )
+        read_only_fields = fields
+
+
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    """Only `is_active` may be changed (ban / unban)."""
+
+    class Meta:
+        model = User
+        fields = ("is_active",)

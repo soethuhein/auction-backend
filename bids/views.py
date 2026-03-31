@@ -20,6 +20,12 @@ class BidCreateView(APIView):
                 {"detail": "Auction not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if auction.seller_id == request.user.id:
+            return Response(
+                {"detail": "The seller cannot bid on their own auction."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = BidCreateSerializer(
             data=request.data,
             context={"auction": auction, "request": request},

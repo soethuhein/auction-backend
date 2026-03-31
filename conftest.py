@@ -56,6 +56,27 @@ def auth_client_other(api_client, other_user):
 
 
 @pytest.fixture
+def staff_user(db):
+    """Staff user (admin dashboard access)."""
+    from users.models import User
+    return User.objects.create_user(
+        email="staff@example.com",
+        password="TestPass123!",
+        first_name="Staff",
+        last_name="User",
+        is_staff=True,
+    )
+
+
+@pytest.fixture
+def staff_auth_client(api_client, staff_user):
+    """API client authenticated as staff."""
+    refresh = RefreshToken.for_user(staff_user)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return api_client
+
+
+@pytest.fixture
 def category(db):
     """Create a test category."""
     from auctions.models import Category

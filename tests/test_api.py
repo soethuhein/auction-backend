@@ -259,6 +259,12 @@ class TestBidsAPI:
         )
         assert response.status_code == 400
 
+    def test_place_bid_seller_rejected(self, auth_client, active_auction):
+        url = reverse("bid-create", kwargs={"auction_id": active_auction.id})
+        response = auth_client.post(url, {"amount": "200.00"}, format="json")
+        assert response.status_code == 400
+        assert "seller" in str(response.data).lower()
+
     def test_place_bid_requires_auth(self, api_client, active_auction):
         url = reverse("bid-create", kwargs={"auction_id": active_auction.id})
         response = api_client.post(url, {"amount": "150.00"}, format="json")

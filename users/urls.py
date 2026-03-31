@@ -11,5 +11,9 @@ urlpatterns = [
     path("me/auctions/", views.MyAuctionsView.as_view(), name="my-auctions"),
     path("me/bids/", views.MyBidsView.as_view(), name="my-bids"),
     path("me/watchlist/", views.MyWatchlistView.as_view(), name="my-watchlist"),
+    path("admin/stats/", views.AdminStatsView.as_view(), name="admin-stats"),
+    path("admin/items/", views.AdminItemListView.as_view(), name="admin-items"),
+    path("admin/users/", views.AdminUserListView.as_view(), name="admin-users"),
+    path("admin/users/<uuid:id>/", views.AdminUserDetailView.as_view(), name="admin-user-detail"),
     path("users/<uuid:id>/", views.UserDetailView.as_view(), name="user-detail"),
 ]
