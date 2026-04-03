@@ -38,3 +38,9 @@ def broadcast_auction_ended(auction_id):
     """Broadcast auction_ended to WebSocket channel."""
     logger.info("Broadcasting auction_ended auction_id=%s", auction_id)
     _send_to_channel(auction_id, "auction_ended", {"status": "ended"})
+
+
+def broadcast_auction_cancelled(auction_id):
+    """Notify clients the auction was cancelled (same channel event shape as ended)."""
+    logger.info("Broadcasting auction_cancelled auction_id=%s", auction_id)
+    _send_to_channel(auction_id, "auction_ended", {"status": "cancelled"})

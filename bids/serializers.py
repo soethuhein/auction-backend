@@ -41,6 +41,17 @@ class BidListSerializer(serializers.ModelSerializer):
         fields = ("id", "bidder", "amount", "created_at")
 
 
+class AdminBidListSerializer(serializers.ModelSerializer):
+    """Staff-only: all bids with auction summary and bidder."""
+
+    bidder = UserPublicSerializer(read_only=True)
+    auction = AuctionBidSummarySerializer(read_only=True)
+
+    class Meta:
+        model = Bid
+        fields = ("id", "amount", "created_at", "bidder", "auction")
+
+
 class MyBidSerializer(serializers.ModelSerializer):
     auction = AuctionBidSummarySerializer(read_only=True)
     is_winning = serializers.SerializerMethodField()

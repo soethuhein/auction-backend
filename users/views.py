@@ -19,9 +19,14 @@ from .serializers import (
     UserSerializer,
 )
 from auctions.models import Auction, Item, Watchlist
-from auctions.serializers import AdminItemListSerializer, AuctionListSerializer, WatchlistSerializer
+from auctions.serializers import (
+    AdminItemListSerializer,
+    AuctionDetailSerializer,
+    AuctionListSerializer,
+    WatchlistSerializer,
+)
 from bids.models import Bid
-from bids.serializers import MyBidSerializer
+from bids.serializers import AdminBidListSerializer, MyBidSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -117,6 +122,56 @@ class AdminItemListView(generics.ListAPIView):
             .select_related("category", "owner")
             .prefetch_related("images")
             .order_by("-created_at")
+        )
+
+
+class AdminBidListView(generics.ListAPIView):
+    """Paginated list of all bids (newest first) for staff dashboard."""
+
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminBidListSerializer
+
+    def get_queryset(self):
+        return (
+            Bid.objects.all()
+            .select_related("auction", "auction__item", "bidder")
+            .order_by("-created_at")
+        )
+
+
+class AdminAuctionCancelView(APIView):
+    """Staff-only: cancel a draft, scheduled, or active auction."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, auction_id, *args, **kwargs):
+        try:
+            auction = Auction.objects.select_related("seller", "item", "item__category").get(
+                pk=auction_id
+            )
+        except Auction.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if auction.status in (Auction.Status.ENDED, Auction.Status.CANCELLED):
+            return Response(
+                {"detail": "This auction is already closed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from auctions.broadcasts import broadcast_auction_cancelled
+        from auctions.tasks import revoke_scheduled_tasks_for_auction
+
+        revoke_scheduled_tasks_for_auction(auction)
+        auction.status = Auction.Status.CANCELLED
+        auction.activate_task_id = None
+        auction.end_task_id = None
+        auction.save(update_fields=["status", "activate_task_id", "end_task_id", "updated_at"])
+
+        broadcast_auction_cancelled(auction.id)
+
+        return Response(
+            AuctionDetailSerializer(auction, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
 
 

@@ -24,6 +24,12 @@ def _revoke_task(task_id):
         pass
 
 
+def revoke_scheduled_tasks_for_auction(auction):
+    """Revoke Celery ETA tasks for this auction (does not save the model)."""
+    _revoke_task(auction.activate_task_id)
+    _revoke_task(auction.end_task_id)
+
+
 def schedule_auction_tasks(auction):
     """
     Schedule precise ETA tasks for auction start/end.
