@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,11 +19,13 @@ from .serializers import (
     UserRegisterSerializer,
     UserSerializer,
 )
-from auctions.models import Auction, Item, Watchlist
+from auctions.models import Auction, Item, ItemImage, Watchlist
 from auctions.serializers import (
+    AdminItemDetailSerializer,
     AdminItemListSerializer,
     AuctionDetailSerializer,
     AuctionListSerializer,
+    ItemImageSerializer,
     WatchlistSerializer,
 )
 from bids.models import Bid
@@ -123,6 +126,69 @@ class AdminItemListView(generics.ListAPIView):
             .prefetch_related("images")
             .order_by("-created_at")
         )
+
+
+class AdminItemDetailView(generics.RetrieveUpdateAPIView):
+    """Staff-only: view or update any item (does not change owner)."""
+
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminItemDetailSerializer
+    lookup_url_kwarg = "id"
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Item.objects.all().select_related("category", "owner").prefetch_related("images")
+
+
+class AdminItemImagesListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, id, *args, **kwargs):
+        try:
+            item = Item.objects.get(pk=id)
+        except Item.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        qs = item.images.all()
+        return Response(ItemImageSerializer(qs, many=True, context={"request": request}).data)
+
+
+class AdminItemUploadImageView(APIView):
+    permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, id, *args, **kwargs):
+        try:
+            item = Item.objects.get(pk=id)
+        except Item.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"detail": "image file is required"}, status=status.HTTP_400_BAD_REQUEST)
+        alt_text = request.data.get("alt_text", "")
+        sort_order = int(request.data.get("sort_order") or 0)
+        img = ItemImage.objects.create(
+            item=item, image=image_file, alt_text=alt_text, sort_order=sort_order
+        )
+        return Response(
+            ItemImageSerializer(img, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminItemDeleteImageView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def delete(self, request, id, image_id, *args, **kwargs):
+        try:
+            item = Item.objects.get(pk=id)
+        except Item.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            img = item.images.get(pk=image_id)
+        except ItemImage.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        img.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminBidListView(generics.ListAPIView):

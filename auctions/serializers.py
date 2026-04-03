@@ -95,6 +95,48 @@ class AdminItemListSerializer(serializers.ModelSerializer):
         )
 
 
+class AdminItemDetailSerializer(serializers.ModelSerializer):
+    """Staff-only retrieve/update any item (same writable fields as ItemSerializer)."""
+
+    owner = AdminItemOwnerSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    images = ItemImageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Item
+        fields = (
+            "id",
+            "owner",
+            "item_type",
+            "title",
+            "description",
+            "category",
+            "category_id",
+            "attributes",
+            "platform",
+            "region",
+            "language",
+            "license_type",
+            "delivery_method",
+            "images",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate(self, data):
+        category_id = data.pop("category_id", serializers.empty)
+        if category_id is not serializers.empty:
+            if category_id is None:
+                data["category"] = None
+            else:
+                try:
+                    data["category"] = Category.objects.get(pk=category_id)
+                except Category.DoesNotExist:
+                    raise serializers.ValidationError({"category_id": "Invalid category id"})
+        return data
+
+
 class AuctionListSerializer(serializers.ModelSerializer):
     seller = UserPublicSerializer(read_only=True)
     item = ItemSerializer(read_only=True)

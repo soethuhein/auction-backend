@@ -12,6 +12,22 @@ urlpatterns = [
     path("me/bids/", views.MyBidsView.as_view(), name="my-bids"),
     path("me/watchlist/", views.MyWatchlistView.as_view(), name="my-watchlist"),
     path("admin/stats/", views.AdminStatsView.as_view(), name="admin-stats"),
+    path(
+        "admin/items/<uuid:id>/images/<uuid:image_id>/",
+        views.AdminItemDeleteImageView.as_view(),
+        name="admin-item-delete-image",
+    ),
+    path(
+        "admin/items/<uuid:id>/upload_image/",
+        views.AdminItemUploadImageView.as_view(),
+        name="admin-item-upload-image",
+    ),
+    path(
+        "admin/items/<uuid:id>/images/",
+        views.AdminItemImagesListView.as_view(),
+        name="admin-item-images",
+    ),
+    path("admin/items/<uuid:id>/", views.AdminItemDetailView.as_view(), name="admin-item-detail"),
     path("admin/items/", views.AdminItemListView.as_view(), name="admin-items"),
     path(
         "admin/auctions/<uuid:auction_id>/cancel/",
