@@ -17,6 +17,11 @@ SECRET_KEY = os.getenv(
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
+# Behind nginx/Caddy/etc. terminating TLS: the app sees HTTP but clients use HTTPS.
+# Set SECURE_BEHIND_PROXY=true so build_absolute_uri() (e.g. media image_url) uses https.
+if os.getenv("SECURE_BEHIND_PROXY", "").lower() in ("1", "true", "yes"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
